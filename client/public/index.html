@@ -7,55 +7,108 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <div class="container">
+  <div class="container"> 
     <h1>Todo List</h1>
 
-    <form action="/add" method="POST" class="task-form">
-      <input type="text" name="task" placeholder="New Task" required>
+    <form id="task-form" class="task-form">
+      <input type="text" id="task-input" name="task" placeholder="New Task" required>
       <button type="submit">Add Task</button>
     </form>
 
-    <form action="/search" method="POST" class="search-form">
-      <input type="text" name="query" placeholder="Search Tasks">
+    <form id="search-form" class="search-form">
+      <input type="text" id="search-input" name="query" placeholder="Search Tasks">
       <button type="submit">Search</button>
     </form>
 
-    <ul class="task-list">
-        <li class="task-item">
-          <form action="/update" method="POST" class="update-form">
-            <input type="hidden" name="id" value="">
-            <input type="text" name="task" value="" required>
+    <ul id="task-list" class="task-list">
+    </ul>
+  </div>
+
+  <script>
+    const renderTasks = (tasks) => {
+      const taskList = document.getElementById('task-list');
+      taskList.innerHTML = '';
+      tasks.forEach(task => {
+        const li = document.createElement('li');
+        li.classList.add('task-item');
+        li.innerHTML = `
+          <form class="update-form">
+            <input type="hidden" name="id" value="${task.id}">
+            <input type="text" name="task" value="${task.task}" required>
             <label>
               Completed:
-              <input type="checkbox" name="completed">
+              <input type="checkbox" name="completed" ${task.completed ? 'checked' : ''}>
             </label>
             <button type="submit" class="update-btn">Update</button>
           </form>
-          <form action="/delete" method="POST" class="delete-form">
-            <input type="hidden" name="id" value="">
+          <form class="delete-form">
+            <input type="hidden" name="id" value="${task.id}">
             <button type="submit" class="delete-btn">Delete</button>
           </form>
-        </li>
+        `;
+        taskList.appendChild(li);
+      });
+    };
 
-      <li class="task-item">
-        <form action="/update" method="POST" class="update-form">
-          <input type="hidden" name="id" value="1">
-          <input type="text" name="task" value="Buy groceries" required>
-          <label>
-            Completed:
-            <input type="checkbox" name="completed" value="false">
-          </label>
-          <button type="submit" class="update-btn">Update</button>
-        </form>
-        <form action="/delete" method="POST" class="delete-form">
-          <input type="hidden" name="id" value="1">
-          <button type="submit" class="delete-btn">Delete</button>
-        </form>
-      </li>
-    </ul>
-  </div>
+    const fetchTasks = async () => {
+      const response = await fetch('/api/tasks');
+      const tasks = await response.json();
+      renderTasks(tasks);
+    };
+
+    document.getElementById('task-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const taskValue = document.getElementById('task-input').value.trim();
+      if (taskValue) {
+        await fetch('/api/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ task: taskValue })
+        });
+        fetchTasks();
+      }
+    });
+
+    document.getElementById('task-list').addEventListener('submit', async (e) => {
+      if (e.target.classList.contains('update-form')) {
+        e.preventDefault();
+        const form = e.target;
+        const taskId = form.querySelector('input[name="id"]').value;
+        const taskInput = form.querySelector('input[name="task"]').value;
+        const completedCheckbox = form.querySelector('input[name="completed"]').checked;
+
+        await fetch(`/api/tasks/${taskId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ task: taskInput, completed: completedCheckbox })
+        });
+        fetchTasks(); 
+      }
+    });
+
+    document.getElementById('task-list').addEventListener('submit', async (e) => {
+      if (e.target.classList.contains('delete-form')) {
+        e.preventDefault();
+        const taskId = e.target.querySelector('input[name="id"]').value;
+
+        await fetch(`/api/tasks/${taskId}`, {
+          method: 'DELETE',
+        });
+        fetchTasks();
+      }
+    });
+
+    document.getElementById('search-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const searchQuery = document.getElementById('search-input').value.trim();
+      if (searchQuery) {
+        const response = await fetch(`/api/tasks/search?query=${searchQuery}`);
+        const tasks = await response.json();
+        renderTasks(tasks);
+      }
+    });
+
+    fetchTasks();
+  </script>
 </body>
-
-<script src="/js/script.js"></script>
-
 </html>

@@ -11,73 +11,64 @@ rethinkdb.connect({ host: 'localhost', port: 28015 }, (err, conn) => {
   console.log('RethinkDB Connected');
 });
 
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
-
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 rethinkdb.dbList().run(connection, (err, result) => {
   if (err) throw err;
   if (!result.includes('todo_app')) {
-    rethinkdb.dbCreate('todo_app').run(connection, (err, res) => {
-      if (err) throw err;
-      console.log('Database created');
-    });
+    rethinkdb.dbCreate('todo_app').run(connection, () => {});
   }
   rethinkdb.db('todo_app').tableList().run(connection, (err, tables) => {
     if (err) throw err;
     if (!tables.includes('tasks')) {
-      rethinkdb.db('todo_app').tableCreate('tasks').run(connection, (err, res) => {
-        if (err) throw err;
-        console.log('Table created');
-      });
+      rethinkdb.db('todo_app').tableCreate('tasks').run(connection, () => {});
     }
   });
 });
 
-app.get('/', (req, res) => {
+app.get('/api/tasks', (req, res) => {
   rethinkdb.db('todo_app').table('tasks').run(connection, (err, cursor) => {
-    if (err) throw err;
+    if (err) return res.status(500).json({ error: 'Database error' });
     cursor.toArray((err, tasks) => {
-      if (err) throw err;
-      res.render('index', { tasks: tasks });
+      if (err) return res.status(500).json({ error: 'Database error' });
+      res.json(tasks);
     });
   });
 });
 
-app.post('/add', (req, res) => {
+app.post('/api/tasks', (req, res) => {
   const { task } = req.body;
-  rethinkdb.db('todo_app').table('tasks').insert({ task: task, completed: false }).run(connection, (err, result) => {
-    if (err) throw err;
-    res.redirect('/');
+  rethinkdb.db('todo_app').table('tasks').insert({ task, completed: false }).run(connection, (err) => {
+    if (err) return res.status(500).json({ error: 'Failed to add task' });
+    res.status(201).json({ success: true });
   });
 });
 
-app.post('/update', (req, res) => {
-  const { id, task, completed } = req.body;
-  rethinkdb.db('todo_app').table('tasks').get(id).update({ task, completed: JSON.parse(completed) }).run(connection, (err, result) => {
-    if (err) throw err;
-    res.redirect('/');
+app.put('/api/tasks/:id', (req, res) => {
+  const { id } = req.params;
+  const { task, completed } = req.body;
+  rethinkdb.db('todo_app').table('tasks').get(id).update({ task, completed }).run(connection, (err) => {
+    if (err) return res.status(500).json({ error: 'Failed to update task' });
+    res.json({ success: true });
   });
 });
 
-app.post('/delete', (req, res) => {
-  const { id } = req.body;
-  rethinkdb.db('todo_app').table('tasks').get(id).delete().run(connection, (err, result) => {
-    if (err) throw err;
-    res.redirect('/');
+app.delete('/api/tasks/:id', (req, res) => {
+  const { id } = req.params;
+  rethinkdb.db('todo_app').table('tasks').get(id).delete().run(connection, (err) => {
+    if (err) return res.status(500).json({ error: 'Failed to delete task' });
+    res.json({ success: true });
   });
 });
 
-app.post('/search', (req, res) => {
-  const { query } = req.body;
+app.get('/api/tasks/search', (req, res) => {
+  const { query } = req.query;
   rethinkdb.db('todo_app').table('tasks').filter(r => r('task').match(query)).run(connection, (err, cursor) => {
-    if (err) throw err;
+    if (err) return res.status(500).json({ error: 'Search failed' });
     cursor.toArray((err, tasks) => {
-      if (err) throw err;
-      res.render('index', { tasks: tasks });
+      if (err) return res.status(500).json({ error: 'Search failed' });
+      res.json(tasks);
     });
   });
 });
