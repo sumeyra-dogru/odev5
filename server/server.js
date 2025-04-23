@@ -1,8 +1,15 @@
 const express = require('express');
+const cors = require('cors');
 const rethinkdb = require('rethinkdb');
 const path = require('path');
-const app = express();
 const port = 3000;
+
+
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+
 
 let connection = null;
 rethinkdb.connect({ host: 'localhost', port: 28015 }, (err, conn) => {
